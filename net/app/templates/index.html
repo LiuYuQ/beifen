@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Network Visualization</title>
+	<link rel="shortcut icon" href="#" />
+	<script src="/static/js/jquery-3.3.1.min.js"></script>
+	<link href="/static/css/style.css" rel="stylesheet" />
+    <script src="/static/js/cytoscape.min.js"></script>
+	<link href="/static/css/jquery-ui.css" rel="stylesheet" />
+  	<script src=/static/js/jquery-ui.js></script>
+</head>
+<body>
+	<div id="header">
+		<div style="margin-left:60px;">
+			<h1 style="line-height: 70px; font-weight: normal; font-family: sans-serif;">Network Visualization</h1>
+		</div>
+	</div>
+	<div id="content" style="width:70%;margin:0 auto; ">
+		<!--选择网络-->
+		<div style="margin-top:15px;border:1px solid #e8efe8; background-color:#f8f8f8;">
+			<div style="margin:10px auto;">
+				<h3 style="color:#404040; font-weight: bold; font-family: sans-serif; height:30px;">Step1. Input data</h3>
+				<h4 style="font-weight: normal; font-family: sans-serif; margin-left:290px;float:left;line-height: 30px;">Enter a list of genes Or</h4>
+				<input type="file" value="Upload File" id="selectFiles" style="display: none" onchange="return selectFiles()"/>
+				<input type="button" id="upload" value="Upload gene file" style="margin-left:10px;display:inline;">
+
+				<div id="name_search" style="text-align:center;">
+					<form name="Form1" method="get">
+						<textarea id="name_text" style="width:500px; height:200px; OVERFLOW:hidden; margin:15px auto;"></textarea>
+						<div style="margin-left:50px; ">
+							<input type="submit" id="name_select" value="Submit" style="margin-left:70px;">
+							<a id="example" style="margin-left:50px;color:#0080FF;">example</a>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<!--选择网络名称-->
+		<div id="choose_net" style="margin:15px auto;border:1px solid #e8efe8; background-color:#f8f8f8;">
+			<div style="margin:10px auto;">
+				<div style="margin：10px auto;"><h3 style="text-align:left; color:#404040; font-weight: bold; font-family: sans-serif;">Step2. Choose A Net </h3></div>
+				<div style="height:40px;text-align:center;">
+					<input id="neighbor" type="radio" name="net" checked>&nbsp;&nbsp;Neighbor (Default)
+					<input id="selected" type="radio" name="net" style="margin-left:20px;">&nbsp;&nbsp;Selected
+					<input id="all" type="radio" name="net" style="margin-left:50px;">&nbsp;&nbsp;All
+				</div>
+				<div style="text-align:center;">
+					<select id="net_list" style="width: 500px;height:35px;" >
+					<option class ="net" value="default" disabled selected style='display:none;'>Choose a net</option>
+					</select><br>
+					<input type="button" value="Visualize" id="visualize" style="margin:20px;">
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		var cy = new Object();
+	</script>
+
+<!--例子-->
+	<script>
+	$("#example").click(function(){
+		var exam = 'ARL5C\nCRELD1\nATF7';
+    	document.getElementById("name_text").value = exam;
+	});
+	</script>
+
+<!--名称搜索-->
+	<script>
+		$('#name_select').click(function(){
+			var target = document.getElementById("name_text").value.toUpperCase().split(/[\n\s+,]/g);
+			for (var i = 0; i < target.length; i++) {
+				if (target[i] == "") {
+					target.splice(i, 1);
+					i--;
+				}
+			}
+			sessionStorage.setItem("nodes", target);
+			var id = $('#menu_id').val();
+			if(target!=''){
+				$.ajax({
+						type : 'post',
+						url : '/search',
+						dataType : 'json',
+						data : JSON.stringify({'target':target}),
+						contentType : 'application/json',
+						traditional : true,
+						success : function(data){
+<!--							alert(data);-->
+						},
+						error : function(){
+<!--							alert("error!");-->
+						}
+				});
+
+				$.get('/search1', function (result){
+				    if(jQuery.isEmptyObject(result.nets)){
+				        alert("'"+target+"' is not in the databases!");
+				    }
+				    else{
+                        for(var item in result.nets){
+                            $("#net_list").append("<option class ='net' value=" + item + ">" +item + "（" + result.nets[item] + " nodes ）"+"</option>");
+                        }
+                        alert("Submit succeed! Please goto step2");
+                        $('#name_select').attr('disabled','disabled');
+                        $('#upload').attr('disabled','disabled');
+                        window.location.hash = "#choose_net";
+                    };
+				}, 'json');
+
+			}
+			else{
+				alert("Please enter a list of genes or upload gene files!");
+			}
+		return false;
+		});
+	</script>
+
+<!--选择网络-->
+	<script>
+		$('#visualize').click(function(){
+			var net = document.getElementById("net_list").value;
+			var check = 0;
+			check = $("input[type='radio']:checked").attr("id");
+
+			$.ajax({
+				type : 'post',
+				url : '/select',
+				dataType : 'json',
+				data : JSON.stringify({'net':net, 'check':check}),
+				contentType : 'application/json',
+				traditional : true,
+				success : function(data){
+<!--                    alert(data);-->
+				},
+				error : function(){
+<!--					alert("error!");-->
+				}
+			});
+			window.location.href = '/info?net=' + net + '&check=' + check;
+		});
+	</script>
+
+<!--上传文件-->
+	<script>
+		$("#upload").click(function(){
+			$("#selectFiles").click();
+		});
+		function selectFiles(){
+			var file = document.getElementById("selectFiles").files[0];
+			var reader = new FileReader();
+			reader.readAsText(file);
+			reader.onload = function(oFREvent){
+				target = oFREvent.target.result.toUpperCase().split(/[\n\s+,]/g);
+				for (var i = 0; i < target.length; i++) {
+					if (target[i] == "") {
+						target.splice(i, 1);
+						i--;
+					}
+				}
+				sessionStorage.setItem("nodes", target);
+<!--				document.getElementById('name_text').innerText =  target;-->
+				$('#name_select').attr('disabled','disabled');
+				if(target!=''){
+					$.ajax({
+					    type : 'post',
+						url : '/search',
+						dataType : 'json',
+						data : JSON.stringify({'target':target}),
+						contentType : 'application/json',
+						traditional : true,
+						success : function(data){
+<!--							alert(data);-->
+						},
+						error : function(){
+<!--							alert("error!");-->
+						}
+					});
+
+					$.get('/search1', function (result){
+                        if(jQuery.isEmptyObject(result.nets)){
+                            alert("'"+target+"' is not in the databases!");
+                        }
+                        else{
+                            for(var item in result.nets){
+                                $("#net_list").append("<option class ='net' value=" + item + ">" +item + "（" + result.nets[item] + " nodes ）"+"</option>");
+                            }
+                            alert("Upload succeed! Please goto step2");
+                            window.location.hash = "#choose_net";
+                        };
+                    }, 'json');
+                }
+                else{
+                    alert("Please enter a list of genes or upload gene files!");
+                }
+            }
+		}
+	</script>
+</body>
+</html>
